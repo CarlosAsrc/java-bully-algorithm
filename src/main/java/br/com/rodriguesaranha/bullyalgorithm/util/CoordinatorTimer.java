@@ -1,4 +1,4 @@
-package br.com.rodriguesaranha.bullyalgorithm.Model;
+package br.com.rodriguesaranha.bullyalgorithm.util;
 
 import java.util.Timer;
 import java.util.TimerTask;

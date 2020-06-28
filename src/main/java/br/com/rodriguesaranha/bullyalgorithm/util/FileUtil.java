@@ -12,11 +12,7 @@ import java.util.Scanner;
 
 public class FileUtil {
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-        ActualNode actualNode = FileUtil.buildNode("ARQUIVOS - input|output/input/data.txt", 4);
-        actualNode.start();
-    }
-
+    public static final String INPUT_PATH = "src/main/resources/ARQUIVOS - input|output/input/";
 
     public static void write(String name, byte[] data) {
         try {
@@ -37,7 +33,7 @@ public class FileUtil {
     public static ActualNode buildNode(String path, Integer nodeLine) throws IOException {
         try {
             System.out.println(String.format("Iniciando leitura do arquivo de configuração %s para o id %s", path, nodeLine));
-            FileReader file = new FileReader(path);
+            FileReader file = new FileReader(INPUT_PATH + path);
             Scanner scanner = new Scanner(file);
             ActualNode actualNode = new ActualNode();
             List<Node> nodes = new ArrayList<>();

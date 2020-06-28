@@ -1,5 +1,6 @@
 package br.com.rodriguesaranha.bullyalgorithm.Model;
 
+import br.com.rodriguesaranha.bullyalgorithm.util.CoordinatorTimer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
