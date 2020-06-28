@@ -1,8 +1,8 @@
-package br.com.rodriguesaranha.bullyalgorithm.util;
+package br.com.rodriguesaranha.bullyalgorithm;
 
 
-import br.com.rodriguesaranha.bullyalgorithm.Model.Node;
-import br.com.rodriguesaranha.bullyalgorithm.Model.ActualNode;
+import br.com.rodriguesaranha.bullyalgorithm.Node;
+import br.com.rodriguesaranha.bullyalgorithm.ActualNode;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -53,6 +53,8 @@ public class FileUtil {
                                 .id(Integer.parseInt(id))
                                 .port(Integer.parseInt(port))
                                 .address(InetAddress.getByName(host))
+                                .isHealthy(false)
+                                .isCoordinator(false)
                                 .build();
                         nodes.add(node);
                     } else {
@@ -60,6 +62,7 @@ public class FileUtil {
                                 .id(Integer.parseInt(id))
                                 .port(Integer.parseInt(port))
                                 .address(InetAddress.getByName(host))
+                                .isCoordinator(false)
                                 .build();
                     }
                 }

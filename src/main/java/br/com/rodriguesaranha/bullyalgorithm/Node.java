@@ -1,4 +1,4 @@
-package br.com.rodriguesaranha.bullyalgorithm.Model;
+package br.com.rodriguesaranha.bullyalgorithm;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,6 +17,7 @@ public class Node {
     private Integer id;
     private InetAddress address;
     private Integer port;
-    private boolean isReady;
+    private boolean isHealthy;
+    private boolean isCoordinator;
 
 }

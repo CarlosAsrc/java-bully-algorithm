@@ -1,4 +1,4 @@
-package br.com.rodriguesaranha.bullyalgorithm.util;
+package br.com.rodriguesaranha.bullyalgorithm;
 
 import java.io.*;
 

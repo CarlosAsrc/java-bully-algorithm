@@ -1,6 +1,5 @@
-package br.com.rodriguesaranha.bullyalgorithm.Model;
+package br.com.rodriguesaranha.bullyalgorithm;
 
-import br.com.rodriguesaranha.bullyalgorithm.util.CoordinatorTimer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,6 +13,7 @@ import java.net.SocketException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 
 @Data
 @Builder
@@ -25,6 +25,7 @@ public class ActualNode {
     private InetAddress address;
     private Integer port;
     private List<Node> nodes;
+    private boolean isCoordinator;
     private DatagramSocket socket;
     private DatagramPacket receivedPacket;
     private DatagramPacket packetToSend;
@@ -32,14 +33,13 @@ public class ActualNode {
 
 
     public Node getCoordinator() {
-        Node highestIdNode = nodes.stream().max(Comparator.comparing(Node::getId)).get();
+        Node highestIdNode = nodes.stream()
+                .filter(Node::isCoordinator)
+                .findFirst()
+                .get();
         return id > highestIdNode.getId() ? mapActualNodeToNode(this) : highestIdNode;
-
     }
 
-    private boolean imCoordinador() {
-        return id.equals(getCoordinator().getId());
-    }
 
 
     private Node mapActualNodeToNode(ActualNode actualNode) {
@@ -53,12 +53,23 @@ public class ActualNode {
 
     public void start() throws SocketException, InterruptedException {
         socket = new DatagramSocket(port);
+        boolean isFirstInteraction = true;
+
+        defineCoodinator();
+
         while (true) {
-            if(imCoordinador()) {
-                waitForOtherNodesToStart();
+            if(isCoordinator) {
+                //PROCESSO AGE COMO COORDENADOR:
+                if(isFirstInteraction) {
+                    isFirstInteraction = false;
+                    waitForOtherNodesToStart();
+                }
                 confirmStatusToOthersNodes();
             } else {
+                //PROCESSO AGE NORMALMENTE:
                 if(!isCoordinatorUp()) {
+                    getCoordinator().setHealthy(false);
+                    getCoordinator().setCoordinator(false);
                     startElection();
                 }
             }
@@ -66,8 +77,43 @@ public class ActualNode {
         }
     }
 
+    private void defineCoodinator() {
+        Node highestIdNode = nodes.stream()
+                .max(Comparator.comparing(Node::getId))
+                .get();
+        if (id > highestIdNode.getId()) {
+            isCoordinator = true;
+        } else {
+            highestIdNode.setCoordinator(true);
+        }
+    }
+
     private void startElection() {
         System.out.println(String.format("Processo %s iniciando eleição.", id));
+        for (Node node: getBiggerNodes()){
+            try {
+                byte[] sendBuffer = "ELECTION".getBytes();
+                packetToSend = new DatagramPacket(sendBuffer, sendBuffer.length, node.getAddress(), node.getPort());
+                socket.send(packetToSend);
+
+                byte[] buffer = new byte[8192];
+                receivedPacket = new DatagramPacket(buffer, buffer.length);
+                socket.setSoTimeout(1000);
+                socket.receive(receivedPacket);
+
+                String coordinatorAnswer = new String(receivedPacket.getData());
+                if(coordinatorAnswer.equals("OK")) {
+                    node.setHealthy(true);
+                    return;
+                }
+            } catch (IOException e) {}
+        }
+    }
+
+    private List<Node> getBiggerNodes() {
+        return nodes.stream()
+                .filter(node -> node.getId() > id)
+                .collect(Collectors.toList());
     }
 
     private void waitForOtherNodesToStart() {
@@ -82,7 +128,7 @@ public class ActualNode {
                      .filter(p -> p.getPort() == receivedPacket.getPort())
                      .findFirst()
                      .get();
-                node.setReady(true);
+                node.setHealthy(true);
                 System.out.println(String.format("Processo %s pronto!", node.getId()));
                 byte[] bufferToSend = "OK".getBytes();
                 this.packetToSend = new DatagramPacket(bufferToSend, bufferToSend.length, receivedPacket.getAddress(), receivedPacket.getPort());
@@ -90,12 +136,11 @@ public class ActualNode {
             } catch (IOException | NoSuchElementException ignored) {}
         }
         System.out.println("Todos os processos prontos! ");
-        new CoordinatorTimer(10);
     }
 
     private boolean isAllProcessesReady() {
         for (Node node : nodes) {
-            if (!node.isReady()) return false;
+            if (!node.isHealthy()) return false;
         }
         return true;
     }
@@ -120,8 +165,9 @@ public class ActualNode {
     }
 
     private void confirmStatusToOthersNodes() {
+        new CoordinatorTimer(10);
         byte[] buffer = new byte[8192];
-        for (int i=1; i<=10; i++){
+        while (true) {
             try {
                 receivedPacket = new DatagramPacket(buffer, buffer.length);
                 socket.setSoTimeout(100);
