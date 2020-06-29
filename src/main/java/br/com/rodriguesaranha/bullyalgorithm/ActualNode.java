@@ -77,25 +77,53 @@ public class ActualNode {
         }
     }
 
-    private void verifyPossibleCoordinator() throws IOException {
-        if(isCoordinator) {
-            return;
-        }
+    private void verifyPossibleCoordinator() {
+        Node node;
+        while (true) {
+            try {
+                byte[] buffer = new byte[8192];
+                receivedPacket = new DatagramPacket(buffer, buffer.length);
+                socket.setSoTimeout(1000);
+                socket.receive(receivedPacket);
+                String content = new String(receivedPacket.getData());
+                System.out.println("Aguardando novo coordenador. message: "+content);
 
-        byte[] buffer = new byte[8192];
-        receivedPacket = new DatagramPacket(buffer, buffer.length);
-        socket.setSoTimeout(1000);
-        socket.receive(receivedPacket);
-        String content = new String(receivedPacket.getData());
-        if(content.trim().equals("COORDINATOR")) {
-            Node node = nodes.stream()
-                    .filter(p -> p.getPort() == receivedPacket.getPort())
-                    .findFirst()
-                    .get();
-            node.setCoordinator(true);
-            System.out.println("Processo "+node.getId()+" virou coordenador!");
-            FileUtil.write(id, "\nc "+node.getId(), true);
+                switch (content.trim()) {
+                    case "OK":
+                        node = getNodeByPacket(receivedPacket);
+                        System.out.println("Processo "+node.getId()+" respondeu OK, eleição perdida");
+                        break;
+                    case "ELECTION":
+                        byte[] sendBuffer = "OK".getBytes();
+                        node = getNodeByPacket(receivedPacket);
+                        packetToSend = new DatagramPacket(sendBuffer, sendBuffer.length, node.getAddress(), node.getPort());
+                        socket.send(packetToSend);
+//                        Thread.sleep(2000);
+                        for (Node n: nodes){
+                            try {
+                                sendBuffer = "COORDINATOR".getBytes();
+                                packetToSend = new DatagramPacket(sendBuffer, sendBuffer.length, n.getAddress(), n.getPort());
+                                socket.send(packetToSend);
+                            } catch (IOException e) {}
+                        }
+                        setCoordinator(true);
+                        return;
+                    case "COORDINATOR":
+                        node = getNodeByPacket(receivedPacket);
+                        node.setCoordinator(true);
+                        System.out.println("Processo "+node.getId()+" virou coordenador!");
+                        FileUtil.write(id, "\nc "+node.getId(), true);
+                        return;
+                }
+            } catch (IOException e) {}
         }
+    }
+
+    public Node getNodeByPacket(DatagramPacket datagramPacket) {
+        return nodes.stream()
+                .filter(p -> p.getPort() == datagramPacket.getPort())
+                .findFirst()
+                .get();
     }
 
     private void defineCoodinator() {
@@ -115,32 +143,6 @@ public class ActualNode {
         for (Node node: getBiggerNodes()){
             try {
                 byte[] sendBuffer = "ELECTION".getBytes();
-                packetToSend = new DatagramPacket(sendBuffer, sendBuffer.length, node.getAddress(), node.getPort());
-                socket.send(packetToSend);
-
-            } catch (IOException e) {}
-        }
-
-        for(int i=1; i<=5; i++) {
-            try {
-                byte[] buffer = new byte[8192];
-                receivedPacket = new DatagramPacket(buffer, buffer.length);
-                socket.setSoTimeout(200);
-                socket.receive(receivedPacket);
-
-                String coordinatorAnswer = new String(receivedPacket.getData());
-                if(coordinatorAnswer.equals("OK")) {
-                    System.out.println("Processo "+id+" respondeu OK, eleição perdida");
-                    return;
-                }
-            } catch (IOException e) {}
-        }
-
-        setCoordinator(true);
-        System.out.println("Processo "+id+" virou coordenador!");
-        for (Node node: getBiggerNodes()){
-            try {
-                byte[] sendBuffer = "COORDINATOR".getBytes();
                 packetToSend = new DatagramPacket(sendBuffer, sendBuffer.length, node.getAddress(), node.getPort());
                 socket.send(packetToSend);
             } catch (IOException e) {}
@@ -206,10 +208,12 @@ public class ActualNode {
             socket.receive(receivedPacket);
 
             String coordinatorAnswer = new String(receivedPacket.getData());
-            System.out.println("HEALTH CHECK DO COORDENADOR: "+coordinatorAnswer);
-            return coordinatorAnswer.trim().equals("OK");
+            if(receivedPacket.getPort() == getCoordinator().getPort()){
+                System.out.println("Health check do coordenador: "+coordinatorAnswer);
+            }
+            return true;
         } catch (IOException e) {
-            FileUtil.write(id, "t "+coordinator.getId(), true);
+            FileUtil.write(id, "\nt "+coordinator.getId(), true);
             return false;
         }
     }
