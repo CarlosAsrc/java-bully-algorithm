@@ -9,25 +9,25 @@ import java.util.Scanner;
 
 public class FileUtil {
 
-    public static final String INPUT_PATH = "src/main/resources/ARQUIVOS - input|output/input/";
-    public static final String OUTPUT_PATH = "src/main/resources/ARQUIVOS - input|output/output/";
+    public static final String INPUT_PATH = "ARQUIVOS - input|output/input/";
+    public static final String OUTPUT_PATH = "ARQUIVOS - input|output/output/";
     public static final String BASE_FILENAME = "nodo";
 
-    public static void write(Integer nodeId, String data) {
+    public static void write(Integer nodeId, String data, boolean append) {
         try {
             File file = new File(OUTPUT_PATH);
             if(!file.exists()) {
                 file.mkdir();
             }
             file = new File(OUTPUT_PATH + BASE_FILENAME + nodeId);
-            OutputStream os = new FileOutputStream(file, true);
+            OutputStream os = new FileOutputStream(file, append);
             os.write(data.getBytes());
             os.close();
-            System.out.println("Saída de processo "+BASE_FILENAME+nodeId+" gravada!");
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
 
     public static ActualNode buildNode(String path, Integer nodeLine) throws IOException {
         try {

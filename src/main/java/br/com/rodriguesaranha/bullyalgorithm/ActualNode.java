@@ -52,19 +52,17 @@ public class ActualNode {
     }
 
 
-    public void start() throws SocketException, InterruptedException {
+    public void start() throws IOException, InterruptedException {
         socket = new DatagramSocket(port);
-        boolean isFirstInteraction = true;
-
         defineCoodinator();
+
+        if(isCoordinator) {
+            waitForOtherNodesToStart();
+        }
 
         while (true) {
             if(isCoordinator) {
                 //PROCESSO AGE COMO COORDENADOR:
-                if(isFirstInteraction) {
-                    isFirstInteraction = false;
-                    waitForOtherNodesToStart();
-                }
                 confirmStatusToOthersNodes();
             } else {
                 //PROCESSO AGE NORMALMENTE:
@@ -72,9 +70,31 @@ public class ActualNode {
                     getCoordinator().setHealthy(false);
                     getCoordinator().setCoordinator(false);
                     startElection();
+                    verifyPossibleCoordinator();
                 }
             }
             Thread.sleep(3000);
+        }
+    }
+
+    private void verifyPossibleCoordinator() throws IOException {
+        if(isCoordinator) {
+            return;
+        }
+
+        byte[] buffer = new byte[8192];
+        receivedPacket = new DatagramPacket(buffer, buffer.length);
+        socket.setSoTimeout(1000);
+        socket.receive(receivedPacket);
+        String content = new String(receivedPacket.getData());
+        if(content.trim().equals("COORDINATOR")) {
+            Node node = nodes.stream()
+                    .filter(p -> p.getPort() == receivedPacket.getPort())
+                    .findFirst()
+                    .get();
+            node.setCoordinator(true);
+            System.out.println("Processo "+node.getId()+" virou coordenador!");
+            FileUtil.write(id, "\nc "+node.getId(), true);
         }
     }
 
@@ -92,35 +112,48 @@ public class ActualNode {
     private void startElection() {
         System.out.println(String.format("Processo %s iniciando eleição.", id));
         writeElectionOutput();
-        FileUtil.write(id, "\ne ");
         for (Node node: getBiggerNodes()){
             try {
                 byte[] sendBuffer = "ELECTION".getBytes();
                 packetToSend = new DatagramPacket(sendBuffer, sendBuffer.length, node.getAddress(), node.getPort());
                 socket.send(packetToSend);
 
+            } catch (IOException e) {}
+        }
+
+        for(int i=1; i<=5; i++) {
+            try {
                 byte[] buffer = new byte[8192];
                 receivedPacket = new DatagramPacket(buffer, buffer.length);
-                socket.setSoTimeout(1000);
+                socket.setSoTimeout(200);
                 socket.receive(receivedPacket);
 
                 String coordinatorAnswer = new String(receivedPacket.getData());
                 if(coordinatorAnswer.equals("OK")) {
-                    node.setHealthy(true);
+                    System.out.println("Processo "+id+" respondeu OK, eleição perdida");
                     return;
                 }
+            } catch (IOException e) {}
+        }
+
+        setCoordinator(true);
+        System.out.println("Processo "+id+" virou coordenador!");
+        for (Node node: getBiggerNodes()){
+            try {
+                byte[] sendBuffer = "COORDINATOR".getBytes();
+                packetToSend = new DatagramPacket(sendBuffer, sendBuffer.length, node.getAddress(), node.getPort());
+                socket.send(packetToSend);
             } catch (IOException e) {}
         }
     }
 
     private void writeElectionOutput() {
-        FileUtil.write(id, "\ne ");
         StringBuilder nodes = new StringBuilder("\ne [");
         for (Node node: getBiggerNodes()) {
             nodes.append(" ").append(node.getId());
         }
         nodes.append(" ]");
-        FileUtil.write(id, nodes.toString());
+        FileUtil.write(id, nodes.toString(), true);
     }
 
     private List<Node> getBiggerNodes() {
@@ -131,8 +164,8 @@ public class ActualNode {
 
     private void waitForOtherNodesToStart() {
         byte[] buffer = new byte[8192];
+        System.out.println("Aguardando todos os processos iniciarem..");
         while (!isAllProcessesReady()){
-            System.out.println("Aguardando todos os processos iniciarem..");
             try {
                 receivedPacket = new DatagramPacket(buffer, buffer.length);
                 socket.setSoTimeout(1000);
@@ -141,8 +174,10 @@ public class ActualNode {
                      .filter(p -> p.getPort() == receivedPacket.getPort())
                      .findFirst()
                      .get();
-                node.setHealthy(true);
-                System.out.println(String.format("Processo %s pronto!", node.getId()));
+                if(!node.isHealthy()){
+                    System.out.println(String.format("Processo %s pronto!", node.getId()));
+                    node.setHealthy(true);
+                }
                 byte[] bufferToSend = "OK".getBytes();
                 this.packetToSend = new DatagramPacket(bufferToSend, bufferToSend.length, receivedPacket.getAddress(), receivedPacket.getPort());
                 socket.send(packetToSend);
@@ -171,9 +206,10 @@ public class ActualNode {
             socket.receive(receivedPacket);
 
             String coordinatorAnswer = new String(receivedPacket.getData());
+            System.out.println("HEALTH CHECK DO COORDENADOR: "+coordinatorAnswer);
             return coordinatorAnswer.trim().equals("OK");
         } catch (IOException e) {
-            FileUtil.write(id, "t "+coordinator.getId());
+            FileUtil.write(id, "t "+coordinator.getId(), true);
             return false;
         }
     }
