@@ -26,6 +26,7 @@ public class ActualNode {
     private Integer port;
     private List<Node> nodes;
     private boolean isCoordinator;
+    private String output;
     private DatagramSocket socket;
     private DatagramPacket receivedPacket;
     private DatagramPacket packetToSend;
@@ -90,6 +91,8 @@ public class ActualNode {
 
     private void startElection() {
         System.out.println(String.format("Processo %s iniciando eleição.", id));
+        writeElectionOutput();
+        FileUtil.write(id, "\ne ");
         for (Node node: getBiggerNodes()){
             try {
                 byte[] sendBuffer = "ELECTION".getBytes();
@@ -108,6 +111,16 @@ public class ActualNode {
                 }
             } catch (IOException e) {}
         }
+    }
+
+    private void writeElectionOutput() {
+        FileUtil.write(id, "\ne ");
+        StringBuilder nodes = new StringBuilder("\ne [");
+        for (Node node: getBiggerNodes()) {
+            nodes.append(" ").append(node.getId());
+        }
+        nodes.append(" ]");
+        FileUtil.write(id, nodes.toString());
     }
 
     private List<Node> getBiggerNodes() {
@@ -146,8 +159,8 @@ public class ActualNode {
     }
 
     private boolean isCoordinatorUp() {
+        Node coordinator = getCoordinator();
         try {
-            Node coordinator = getCoordinator();
             byte[] sendBuffer = "OK?".getBytes();
             packetToSend = new DatagramPacket(sendBuffer, sendBuffer.length, coordinator.getAddress(), coordinator.getPort());
             socket.send(packetToSend);
@@ -158,8 +171,9 @@ public class ActualNode {
             socket.receive(receivedPacket);
 
             String coordinatorAnswer = new String(receivedPacket.getData());
-            return coordinatorAnswer.equals("OK");
+            return coordinatorAnswer.trim().equals("OK");
         } catch (IOException e) {
+            FileUtil.write(id, "t "+coordinator.getId());
             return false;
         }
     }

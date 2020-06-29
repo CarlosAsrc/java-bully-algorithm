@@ -8,7 +8,7 @@ public class Main {
 //            System.out.println("Uso: java Main <arquivo-config> <linha>");
 //            return;
 //        }
-        ActualNode actualNode = FileUtil.buildNode("data.txt", 4);
+        ActualNode actualNode = FileUtil.buildNode("data.txt", 1);
         actualNode.start();
     }
 }

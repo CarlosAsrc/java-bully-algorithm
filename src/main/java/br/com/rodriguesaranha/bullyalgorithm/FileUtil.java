@@ -1,9 +1,6 @@
 package br.com.rodriguesaranha.bullyalgorithm;
 
 
-import br.com.rodriguesaranha.bullyalgorithm.Node;
-import br.com.rodriguesaranha.bullyalgorithm.ActualNode;
-
 import java.io.*;
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -13,18 +10,20 @@ import java.util.Scanner;
 public class FileUtil {
 
     public static final String INPUT_PATH = "src/main/resources/ARQUIVOS - input|output/input/";
+    public static final String OUTPUT_PATH = "src/main/resources/ARQUIVOS - input|output/output/";
+    public static final String BASE_FILENAME = "nodo";
 
-    public static void write(String name, byte[] data) {
+    public static void write(Integer nodeId, String data) {
         try {
-            File file = new File("./ARQUIVOS - input|output/output/");
+            File file = new File(OUTPUT_PATH);
             if(!file.exists()) {
                 file.mkdir();
             }
-            file = new File("./ARQUIVOS - input|output/ouput/" + name);
-            OutputStream os = new FileOutputStream(file);
-            os.write(data);
+            file = new File(OUTPUT_PATH + BASE_FILENAME + nodeId);
+            OutputStream os = new FileOutputStream(file, true);
+            os.write(data.getBytes());
             os.close();
-            System.out.println("Saída de processo "+name+" gravada!");
+            System.out.println("Saída de processo "+BASE_FILENAME+nodeId+" gravada!");
         } catch (IOException e) {
             e.printStackTrace();
         }
